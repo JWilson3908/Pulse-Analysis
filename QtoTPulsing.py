@@ -177,12 +177,12 @@ class pulse:
             ax1.set_xlabel('Point #')
             ax1.scatter( self.pulserawData2[4]+self.pulsestart, self.pulserawData2[1], color='blue', s=0.5)
             axes = plt.gca()
-            axes.set_ylim([0,max(self.pulserawData2[1])])
+            axes.set_ylim( [ 0, max(self.pulserawData2[1]) ])
             plt.show()
         
     def filterPulses(self) :
         ''''This function filters pulses when pulsing occurs in fork 2. It hasn't been vigurously tested yet as of 07/13/2018'''
-        a = np.where( abs( self.pulserawData2[1] ) > 1500 )[0]
+        a = np.where( self.pulserawData2[1] < 0 )[0]
         self.pulseIndex = []
         for i in range(1,len(a)):
             if a[i] - a[i-1] > 1 :
@@ -435,50 +435,40 @@ class pulse:
                     last = m + 1
                 elif Qplot[m] < self.pulserawData2[1][i]:
                     first = m - 1
-                    
         self.pulserawData2 = np.vstack(( self.pulserawData2, newTemp )) 
         
-    def savetofile(self):
-        if self.ramp == 1:
-            for i in range( 1, len( self.rawData1 )  ) :
-                self.rawData1[i] = self.rawData1[i][::-1]
-                
-            for i in range( 1, len( self.rawData2 )  ) :
-                self.rawData2[i] = self.rawData2[i][::-1]
-                
+    def findABs(self,tol) :
+        self.TimeABs=np.zeros(len(self.pulseIndex))
+        self.TempABStart=np.zeros(len(self.pulseIndex))
+        self.TempABEnd=np.zeros(len(self.pulseIndex))
+        self.TempDifferenceABs=np.zeros(len(self.pulseIndex))
+        c = 0
+        for i in range( 1, len( self.pulserawData2[5] ) - 1 ) :
+            if self.pulserawData2[5][i - 1] - self.pulserawData2[5][i] > tol and c < len(self.pulseIndex):
+                self.TempABStart[c] = self.pulserawData2[5][i - 1]
+                self.TempABEnd[c] = self.pulserawData2[5][i + 1]
+                self.TempDifferenceABs[c] = self.pulserawData2[5][i - 1] - self.pulserawData2[5][i + 1]
+                self.TimeABs[c] = self.pulserawData2[0][i]
+                print('Pulse ' + str(c + 1) + ' Done')
+                c += 1
+        
         list1=[]
-        for j in range( -1, len(self.rawData1[0]) ):
+        for j in range( -1, len(self.pulseIndex) ):
             if j == -1:
-                list1.append("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n".format('#[ 1 ] Universal Time (s) ','#[ 2 ] T Local (mK)', '#[ 3 ] Tl / Tc', '#[ 4 ] Tmc / Tc', '#[ 5 ] Q', '#[ 6 ] Inferred Frequency (Hz)' ) )
+                list1.append("{0}\t{1}\t{2}\t{3}\n".format('#[ 1 ] T for AB start (mK)','#[ 2 ] T for AB end (mK)', '#[ 3 ] Delta T for AB (mK)', '#[ 4 ] Time of AB') )
             else:
-                list1.append("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n".format(self.rawData1[0][j],self.rawData1[5][j],self.rawData1[5][j]/self.Tc,self.rawData1[2][j]/self.Tc, self.rawData1[1][j],self.rawData1[3][j]))
-            
+                list1.append("{0}\t{1}\t{2}\t{3}\n".format(self.TempABStart[j], self.TempABEnd[j], self.TempDifferenceABs[j], self.TimeABs[j]))
+                
         str1 = ''.join(list1)
-        if self.ramp == -1:
-            path1 = self.impDir + 'Python Analysis\\' + '0' + str(self.date) + 'CF ' + str(self.Ppsi) +' psi cooling.dat'
-        if self.ramp == 1:
-            path1 = self.impDir + 'Python Analysis\\' + '0' + str(self.date) + 'CF ' + str(self.Ppsi) +' psi warming.dat'
+        self.avgTemp = round( sum(self.pulserawData2[2]) / len(self.pulserawData2[2]) , 2 )
+        path1 = self.impDir + 'Python Analysis\\Pulsing_AB\\' + str(self.Ppsi) +' psi ' + str(self.avgTemp) + ' (mK) Pulses.dat'
         with open(path1,'w') as file1:
             file1.write(str1)
         
-        list2=[]
-        for j in range(-1,len(self.rawData2[0]) ):
-            if j == -1:
-                list2.append("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n".format('#[ 1 ] Universal Time (s) ','#[ 2 ] T Local (mK)', '#[ 3 ] Tl / Tc', '#[ 4 ] Tmc / Tc', '#[ 5 ] Q', '#[ 6 ] Inferred Frequency (Hz)') )
-            else:
-                if self.rawData2[6][j] != -0.5 :
-                    list2.append("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n".format(self.rawData2[0][j],self.rawData2[6][j],self.rawData2[6][j]/self.Tc,self.rawData2[2][j]/self.Tc, self.rawData2[1][j], self.rawData2[3][j]))
-            
-        str2 = ''.join(list2)
-        if self.ramp == -1:
-            path2 = self.impDir + 'Python Analysis\\' + '0' + str(self.date) + 'FF '  + str(self.Ppsi) +' psi cooling.dat'
-        if self.ramp == 1:
-            path2 = self.impDir + 'Python Analysis\\' + '0' + str(self.date) + 'FF '  + str(self.Ppsi) +' psi warming.dat'
-        with open(path2,'w') as file2:
-            file2.write(str2)
         
 #%% Choose a
-a = 1
+a = 3
+
 #%% 6/02 
 if a == 1:
     end = 1000000
@@ -503,7 +493,32 @@ if a == 1:
         P1.k_NNsearch(0.05)
         P1.tempAdjustPulses()
         finalPlot(P1)
+        P1.findABs(0.007)
         
+#%% 6/02 
+
+if a == 2:
+    end = 1000000
+    P2 = pulse(306,-1, 1, 7540, 9400, 30852, 44571, 10, 100, 602)
+    #  7540 to 9400
+    #  
+    # psi, cooling (-1) or warming (1) for non-pulsing (base) data, start and stop for base data
+    # start and stop for pulsing data, number of points to remove before pulse, after pulse, start date
+    
+    # If you don't know the end point, start with the variable end in its place, adjust from there as needed
+    
+    del end
+    
+    if P2.doneCutting == 1  :
+    
+        P2.temp_fit(1)
+        print(P2.T_fit)
+        P2.QtotimeF1(11)
+        print(P2.fit_QtoF1)
+        P2.reCallibrateF2(638)
+    #        638
+        P2.k_NNsearch(0.05)
+        P2.tempAdjustPulses()
+        finalPlot(P2)
+        P2.findABs(0.007)
         
-    
-    
